@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Rainbow</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
+        }
+        #canvas-container {
+            width: 100%;
+            max-width: 1200px;
+            height: 100vh;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.8.0/lib/p5.js"></script>
+
+<base target="_self">
+
+
+    <div id="canvas-container"></div>
+
+    <script>
+        const rainbowSketch = (p) => {
+            let rainbowColors = [];
+            let particles = [];
+            let rainbowWidth = 40;
+            let rainbowHeight = 200;
+            let rainbowSegments = 100;
+            let mouseYInfluence = 0;
+            let lastMouseY = 0;
+            let canvas;
+
+            p.setup = () => {
+                canvas = p.createCanvas(p.min(p.windowWidth, 1200), p.windowHeight);
+                canvas.parent('canvas-container');
+                
+                // Rainbow color palette (ROYGBIV)
+                rainbowColors = [
+                    p.color(255, 0, 0, 150),     // Red
+                    p.color(255, 127, 0, 150),    // Orange
+                    p.color(255, 255, 0, 150),    // Yellow
+                    p.color(0, 255, 0, 150),     // Green
+                    p.color(0, 0, 255, 150),      // Blue
+                    p.color(75, 0, 130, 150),     // Indigo
+                    p.color(148, 0, 211, 150)     // Violet
+                ];
+                
+                p.noStroke();
+                p.smooth();
+            };
+
+            p.draw = () => {
+                p.background(0, 0, 0, 25);
+                
+                // Update mouse influence with smoothing
+                mouseYInfluence = p.lerp(mouseYInfluence, (p.mouseY - lastMouseY) * 0.5, 0.1);
+                lastMouseY = p.mouseY;
+                
+                drawRainbow();
+                updateParticles();
+                
+                // Fade effect for motion trails
+                p.fill(0, 0, 0, 10);
+                p.rect(0, 0, p.width, p.height);
+            };
+
+            function drawRainbow() {
+                let centerX = p.width / 2;
+                let baseY = p.height * 0.6;
+                let amplitude = p.height * 0.2;
+                
+                // Dynamic curve based on mouse position
+                let curveFactor = p.constrain((p.mouseY - p.height/2) / (p.height/2), -1, 1);
+                let dynamicAmplitude = amplitude * (1 + curveFactor * 0.5);
+                
+                for (let i = 0; i < rainbowSegments; i++) {
+                    let t = i / rainbowSegments;
+                    let angle = p.PI + t * p.PI;
+                    
+                    // Calculate position with dynamic curve
+                    let x = centerX + p.cos(angle) * (p.width * 0.4);
+                    let y = baseY + p.sin(angle) * dynamicAmplitude + mouseYInfluence * 0.5;
+                    
+                    // Add some noise for organic feel
+                    y += p.noise(i * 0.1, p.frameCount * 0.01) * 10 - 5;
+                    
+                    // Determine color based on segment
+                    let colorIndex = p.floor(t * rainbowColors.length);
+                    let nextColorIndex = (colorIndex + 1) % rainbowColors.length;
+                    let lerpAmount = (t * rainbowColors.length) % 1;
+                    let segmentColor = p.lerpColor(rainbowColors[colorIndex], rainbowColors[nextColorIndex], lerpAmount);
+                    
+                    // Draw rainbow segment
+                    p.fill(segmentColor);
+                    let segmentWidth = rainbowWidth * (0.8 + p.sin(t * p.PI) * 0.2);
+                    p.ellipse(x, y, segmentWidth, rainbowHeight / rainbowSegments * 2);
+                }
+            }
+
+            function updateParticles() {
+            // Add new particles occasionally
+            if (p.random() < 0.1 && particles.length < 300) {
+                let angle = p.random(p.PI, p.TWO_PI);
+                let radius = p.random(p.width * 0.35, p.width * 0.45);
+                let x = p.width/2 + p.cos(angle) * radius;
+                let y = p.height * 0.6 + p.sin(angle) * (p.height * 0.2) + mouseYInfluence * 0.5;
+                
+                // Make sure a valid color is always assigned
+                let randomColorIndex = p.floor(p.random(rainbowColors.length));
+                let particleColor = p.color(p.red(rainbowColors[randomColorIndex]), 
+                                        p.green(rainbowColors[randomColorIndex]), 
+                                        p.blue(rainbowColors[randomColorIndex]), 
+                                        200);
+                
+                particles.push({
+                    x: x,
+                    y: y,
+                    size: p.random(2, 5),
+                    speed: p.random(0.5, 2),
+                    angle: p.random(p.TWO_PI),
+                    life: p.random(50, 150),
+                    color: particleColor
+                });
+            }
+            
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let particle = particles[i];
+                
+                particle.x += p.cos(particle.angle) * particle.speed;
+                particle.y += p.sin(particle.angle) * particle.speed;
+                particle.life--;
+                
+                // Safely handle color and alpha
+                let particleColor;
+                // Check if particle.color exists before using it
+                if (particle.color) {
+                    // Create a new color based on the original but with updated alpha
+                    let alpha = p.map(particle.life, 0, 100, 0, 200);
+                    particleColor = p.color(p.red(particle.color), 
+                                        p.green(particle.color), 
+                                        p.blue(particle.color), 
+                                        alpha);
+                } else {
+                    // Fallback color if particle.color is undefined
+                    particleColor = p.color(255, 255, 255, 
+                                        p.map(particle.life, 0, 100, 0, 200));
+                }
+                
+                p.fill(particleColor);
+                p.ellipse(particle.x, particle.y, particle.size);
+                
+                // Remove dead particles
+                if (particle.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+            p.mousePressed = () => {
+                // Create burst of particles on click
+                for (let i = 0; i < 50; i++) {
+                    particles.push({
+                        x: p.mouseX,
+                        y: p.mouseY,
+                        size: p.random(2, 6),
+                        speed: p.random(1, 5),
+                        angle: p.random(p.TWO_PI),
+                        life: p.random(30, 100),
+                        color: rainbowColors[p.floor(p.random(rainbowColors.length))].setAlpha(200)
+                    });
+                }
+            };
+
+            p.windowResized = () => {
+                p.resizeCanvas(p.min(p.windowWidth, 1200), p.windowHeight);
+            };
+        };
+
+        new p5(rainbowSketch);
+    </script>
+
+              
+          
+                
+          
+              
